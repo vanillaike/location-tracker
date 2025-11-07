@@ -1257,109 +1257,15 @@
         
         // Service Worker for offline support
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
-            // Create service worker as blob URL
-            const swCode = `
-                const CACHE_NAME = 'location-tracker-v2';
-                const TILE_CACHE_NAME = 'map-tiles-v1';
-                const urlsToCache = [
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-                ];
-
-                // Maximum number of tiles to cache (to prevent unlimited storage)
-                const MAX_TILE_CACHE = 500;
-
-                self.addEventListener('install', event => {
-                    event.waitUntil(
-                        caches.open(CACHE_NAME)
-                            .then(cache => cache.addAll(urlsToCache))
-                            .catch(err => console.error('Cache installation failed:', err))
-                    );
-                });
-
-                self.addEventListener('fetch', event => {
-                    const url = new URL(event.request.url);
-
-                    // Check if it's a tile request
-                    const isTileRequest =
-                        url.hostname.includes('tile.openstreetmap.org') ||
-                        url.hostname.includes('arcgisonline.com') ||
-                        url.hostname.includes('opentopomap.org');
-
-                    if (isTileRequest) {
-                        event.respondWith(
-                            caches.open(TILE_CACHE_NAME).then(cache => {
-                                return cache.match(event.request).then(response => {
-                                    if (response) {
-                                        return response;
-                                    }
-
-                                    return fetch(event.request).then(networkResponse => {
-                                        // Only cache successful tile responses
-                                        if (networkResponse.ok) {
-                                            // Clone before caching
-                                            cache.put(event.request, networkResponse.clone());
-
-                                            // Limit cache size
-                                            cache.keys().then(keys => {
-                                                if (keys.length > MAX_TILE_CACHE) {
-                                                    // Remove oldest entries
-                                                    const toDelete = keys.slice(0, keys.length - MAX_TILE_CACHE);
-                                                    toDelete.forEach(key => cache.delete(key));
-                                                }
-                                            });
-                                        }
-                                        return networkResponse;
-                                    }).catch(() => {
-                                        // Return cached tile or nothing if offline
-                                        return response;
-                                    });
-                                });
-                            })
-                        );
-                    } else {
-                        // Regular caching for non-tile requests
-                        event.respondWith(
-                            caches.match(event.request)
-                                .then(response => response || fetch(event.request))
-                                .catch(err => {
-                                    console.error('Fetch failed:', err);
-                                    throw err;
-                                })
-                        );
-                    }
-                });
-
-                // Clean up old caches on activation
-                self.addEventListener('activate', event => {
-                    event.waitUntil(
-                        caches.keys().then(cacheNames => {
-                            return Promise.all(
-                                cacheNames.map(cacheName => {
-                                    if (cacheName !== CACHE_NAME && cacheName !== TILE_CACHE_NAME) {
-                                        console.log('Deleting old cache:', cacheName);
-                                        return caches.delete(cacheName);
-                                    }
-                                })
-                            );
-                        })
-                    );
-                });
-            `;
-
-            // Create blob from service worker code
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-
-            navigator.serviceWorker.register(swUrl)
-                .then(() => {
-                    console.log('Service Worker registered successfully');
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('Service Worker registered successfully:', registration.scope);
                 })
-                .catch((error) => {
+                .catch(error => {
                     console.error('Service Worker registration failed:', error);
                 });
         } else if (window.location.protocol === 'file:') {
-            console.log('Service Worker not available when opening from file://. Use a web server for offline support.');
+            console.log('Service Worker not available when opening from file://. Use a web server (npx http-server -p 8000) for offline support.');
         }
         
         // Cleanup function
