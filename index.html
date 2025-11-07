@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Location Tracker</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTG9jYXRpb24gVHJhY2tlciIsInNob3J0X25hbWUiOiJMb2NUcmFjayIsInN0YXJ0X3VybCI6Ii4vIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiIzQyODVmNCIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnJTNFJTNDY2lyY2xlIGN4PSc1MCcgY3k9JzUwJyByPSc0MCcgZmlsbD0nJTIzNDI4NWY0Jy8lM0UlM0Mvc3ZnJTNFIiwic2l6ZXMiOiI1MTJ4NTEyIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV19">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* Focus indicators for accessibility */
+        *:focus {
+            outline: 2px solid #4285f4;
+            outline-offset: 2px;
+        }
+
+        *:focus:not(:focus-visible) {
+            outline: none;
+        }
+
+        *:focus-visible {
+            outline: 2px solid #4285f4;
+            outline-offset: 2px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+        }
+        
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        .menu-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: none;
+            width: 50px;
+            height: 50px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 600px) {
+            .menu-toggle {
+                display: flex;
+            }
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                top: 70px;
+                right: 5px;
+                gap: 6px;
+                background: white;
+                padding: 10px;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                max-height: calc(100vh - 150px);
+                transform: translateX(calc(100% + 10px));
+                transition: transform 0.3s ease-in-out;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .controls.open {
+                transform: translateX(0);
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
+        
+        .btn {
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-weight: 600;
+            transition: all 0.2s;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        @media (max-width: 600px) {
+            .btn {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn.tracking {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        
+        .btn.danger {
+            background: #f44336;
+            color: white;
+            border-color: #f44336;
+        }
+        
+        .status {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-size: 14px;
+            z-index: 1000;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 600px) {
+            .status {
+                font-size: 12px;
+                padding: 8px;
+                bottom: 5px;
+                left: 5px;
+                right: 5px;
+            }
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 600px) {
+            .modal-content {
+                padding: 15px;
+                width: 95%;
+                border-radius: 8px;
+            }
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 15px;
+        }
+        
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        /* Prevent zoom on iOS when focusing inputs */
+        @media (max-width: 600px) {
+            .modal-content input {
+                font-size: 16px; /* iOS zooms if less than 16px */
+            }
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .modal-buttons .primary {
+            background: #4285f4;
+            color: white;
+        }
+        
+        .modal-buttons .secondary {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
+
+    <div class="controls" role="toolbar" aria-label="Location tracker controls">
+        <button id="addPinBtn" class="btn" aria-label="Add pin at current location">📍 Add Pin</button>
+        <button id="trackingBtn" class="btn" aria-label="Start location tracking">▶️ Start Tracking</button>
+        <button id="pauseBtn" class="btn" style="display: none;" aria-label="Pause tracking">⏸️ Pause</button>
+        <button id="mapStyleBtn" class="btn" aria-label="Change map style">🗺️ Map Style</button>
+        <button id="settingsBtn" class="btn" aria-label="Open tracking settings">⚙️ Settings</button>
+        <button id="exportBtn" class="btn" aria-label="Export location data">💾 Export</button>
+        <button id="clearBtn" class="btn danger" aria-label="Clear all pins and tracking data">🗑️ Clear All</button>
+    </div>
+    
+    <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
+        Loading map...
+    </div>
+
+    <div id="pinModal" class="modal" role="dialog" aria-labelledby="pinModalTitle" aria-modal="true">
+        <div class="modal-content">
+            <h3 id="pinModalTitle">Add Pin Label</h3>
+            <label for="pinLabel" class="sr-only">Pin label</label>
+            <input type="text" id="pinLabel" placeholder="Label (optional)" aria-describedby="pinLabelDesc" />
+            <span id="pinLabelDesc" class="sr-only">Enter an optional label for this pin location</span>
+            <div class="modal-buttons">
+                <button class="secondary" onclick="cancelPin()" aria-label="Cancel adding pin">Cancel</button>
+                <button class="primary" onclick="savePin()" aria-label="Save pin with label">Save Pin</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportModal" class="modal" role="dialog" aria-labelledby="exportModalTitle" aria-modal="true">
+        <div class="modal-content">
+            <h3 id="exportModalTitle">Export Data</h3>
+            <p style="margin-bottom: 15px; color: #666;">Choose export format:</p>
+            <div class="modal-buttons" style="flex-direction: column;">
+                <button class="primary" onclick="exportGPX()" aria-label="Export data as GPX file format">📍 Export as GPX</button>
+                <button class="primary" onclick="exportJSON()" aria-label="Export data as JSON file format">📄 Export as JSON</button>
+                <button class="secondary" onclick="closeExportModal()" aria-label="Cancel export">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal" role="dialog" aria-labelledby="settingsModalTitle" aria-modal="true">
+        <div class="modal-content">
+            <h3 id="settingsModalTitle">Tracking Settings</h3>
+            <label for="trackingInterval" style="display: block; margin-bottom: 10px;">
+                <span style="display: block; margin-bottom: 5px; font-weight: 600;">Recording Interval (seconds)</span>
+                <input type="number" id="trackingInterval" value="30" min="5" max="300" style="width: 100%;"
+                       aria-describedby="intervalDesc" />
+                <span id="intervalDesc" class="sr-only">Set the interval between location recordings, from 5 to 300 seconds</span>
+            </label>
+            <label for="movementThreshold" style="display: block; margin-bottom: 10px;">
+                <span style="display: block; margin-bottom: 5px; font-weight: 600;">Movement Threshold (meters)</span>
+                <input type="number" id="movementThreshold" value="10" min="0" max="100" style="width: 100%;"
+                       aria-describedby="thresholdDesc" />
+                <span id="thresholdDesc" class="sr-only">Minimum distance to move before recording a new point</span>
+            </label>
+            <label for="highAccuracy" style="display: block; margin-bottom: 15px;">
+                <input type="checkbox" id="highAccuracy" checked style="width: auto; margin-right: 5px;"
+                       aria-describedby="accuracyDesc" />
+                <span>High accuracy GPS (uses more battery)</span>
+                <span id="accuracyDesc" class="sr-only">Enable high accuracy GPS for better precision at the cost of battery life</span>
+            </label>
+            <div class="modal-buttons">
+                <button class="secondary" onclick="closeSettingsModal()" aria-label="Cancel settings changes">Cancel</button>
+                <button class="primary" onclick="saveSettings()" aria-label="Save settings changes">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mapStyleModal" class="modal" role="dialog" aria-labelledby="mapStyleModalTitle" aria-modal="true">
+        <div class="modal-content">
+            <h3 id="mapStyleModalTitle">Choose Map Style</h3>
+            <div class="modal-buttons" style="flex-direction: column;">
+                <button class="primary" onclick="changeMapStyle('streets')" aria-label="Switch to street map">🛣️ Streets</button>
+                <button class="primary" onclick="changeMapStyle('satellite')" aria-label="Switch to satellite imagery">🛰️ Satellite</button>
+                <button class="primary" onclick="changeMapStyle('terrain')" aria-label="Switch to terrain map">⛰️ Terrain</button>
+                <button class="secondary" onclick="closeMapStyleModal()" aria-label="Cancel map style change">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        (function() {
+            'use strict';
+
+            // App State
+            let map;
+            let currentLocationMarker;
+            let trackingInterval;
+            let geolocationWatchId = null;
+            let isTracking = false;
+            let isPaused = false;
+            let pins = [];
+            let pinMarkers = new Map(); // Store marker references keyed by pin index
+            let trackPoints = [];
+            let trackPolyline;
+            let pendingPinLocation = null;
+
+            // Configuration
+            let config = {
+                trackingIntervalSeconds: 30,
+                highAccuracy: true,
+                movementThresholdMeters: 10, // Only record if moved at least 10 meters
+                mapStyle: 'streets' // 'streets', 'satellite', 'terrain'
+            };
+
+            let lastRecordedPosition = null; // Track last recorded position for movement detection
+            let currentTileLayer = null; // Current map tile layer
+            let tileLayers = {}; // Store different tile layers
+            let menuOpen = false; // Track menu state on mobile
+
+        // Utility Functions
+        function sanitizeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            // Haversine formula for distance in meters
+            const R = 6371000; // Earth's radius in meters
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function calculateTotalDistance() {
+            if (trackPoints.length < 2) return 0;
+            let total = 0;
+            for (let i = 1; i < trackPoints.length; i++) {
+                total += calculateDistance(
+                    trackPoints[i-1].lat, trackPoints[i-1].lng,
+                    trackPoints[i].lat, trackPoints[i].lng
+                );
+            }
+            return total;
+        }
+
+        function formatDistance(meters) {
+            if (meters < 1000) {
+                return `${Math.round(meters)}m`;
+            }
+            return `${(meters / 1000).toFixed(2)}km`;
+        }
+
+        function formatDuration(milliseconds) {
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m`;
+            }
+            if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            }
+            return `${seconds}s`;
+        }
+
+        function getTrackDuration() {
+            if (trackPoints.length < 2) return 0;
+            const start = new Date(trackPoints[0].timestamp);
+            const end = new Date(trackPoints[trackPoints.length - 1].timestamp);
+            return end - start;
+        }
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+
+            // Define different tile layers
+            tileLayers = {
+                streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }),
+                satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© Esri',
+                    maxZoom: 19
+                }),
+                terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenTopoMap contributors',
+                    maxZoom: 17
+                })
+            };
+
+            // Load saved config and data
+            loadConfig();
+            loadData();
+
+            // Apply saved map style or default to streets
+            changeMapStyle(config.mapStyle || 'streets');
+
+            // Get current location
+            getCurrentLocation();
+
+            updateStatus('Map loaded. Getting your location...');
+        }
+        
+        // Get current location
+        function getCurrentLocation() {
+            if (!('geolocation' in navigator)) {
+                updateStatus('Geolocation not supported by your browser.');
+                return;
+            }
+
+            // Stop any existing watch
+            if (geolocationWatchId !== null) {
+                navigator.geolocation.clearWatch(geolocationWatchId);
+            }
+
+            const options = {
+                enableHighAccuracy: config.highAccuracy,
+                timeout: 10000,
+                maximumAge: 5000
+            };
+
+            // Use watchPosition for continuous updates
+            geolocationWatchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+
+                    // Only center map on first position
+                    if (!currentLocationMarker) {
+                        map.setView([lat, lng], 15);
+                    }
+
+                    if (currentLocationMarker) {
+                        currentLocationMarker.setLatLng([lat, lng]);
+                    } else {
+                        currentLocationMarker = L.circleMarker([lat, lng], {
+                            radius: 8,
+                            fillColor: '#4285f4',
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+                    }
+
+                    updateStatus(`Location: ${lat.toFixed(6)}, ${lng.toFixed(6)} (±${Math.round(accuracy)}m)`);
+                },
+                (error) => {
+                    let errorMessage = 'Error getting location: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage += 'Location permission denied. Please enable location access.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage += 'Location information unavailable. Check your device settings.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage += 'Location request timed out. Retrying...';
+                            break;
+                        default:
+                            errorMessage += 'Unknown error occurred.';
+                    }
+                    updateStatus(errorMessage);
+                    console.error('Geolocation error:', error);
+                },
+                options
+            );
+        }
+        
+        // Add pin
+        function addPin() {
+            if (!currentLocationMarker) {
+                alert('Please wait for your location to be detected first.');
+                return;
+            }
+            
+            const latlng = currentLocationMarker.getLatLng();
+            pendingPinLocation = latlng;
+            
+            document.getElementById('pinModal').classList.add('active');
+            document.getElementById('pinLabel').focus();
+        }
+        
+        function cancelPin() {
+            document.getElementById('pinModal').classList.remove('active');
+            document.getElementById('pinLabel').value = '';
+            pendingPinLocation = null;
+            // Return focus to add pin button
+            document.getElementById('addPinBtn').focus();
+        }
+        
+        function savePin() {
+            const label = document.getElementById('pinLabel').value.trim();
+            const latlng = pendingPinLocation;
+
+            if (!latlng) return;
+
+            const pin = {
+                lat: latlng.lat,
+                lng: latlng.lng,
+                label: label,
+                timestamp: new Date().toISOString()
+            };
+
+            const pinIndex = pins.length;
+            pins.push(pin);
+
+            // Create marker with sanitized content
+            const marker = L.marker([pin.lat, pin.lng]).addTo(map);
+            const sanitizedLabel = sanitizeHTML(pin.label);
+            const formattedDate = new Date(pin.timestamp).toLocaleString();
+
+            if (pin.label) {
+                marker.bindPopup(`<b>${sanitizedLabel}</b><br>${formattedDate}`);
+            } else {
+                marker.bindPopup(`Pin added at ${formattedDate}`);
+            }
+
+            // Store marker reference
+            pinMarkers.set(pinIndex, marker);
+
+            saveData();
+
+            // Close modal and return focus
+            document.getElementById('pinModal').classList.remove('active');
+            document.getElementById('pinLabel').value = '';
+            pendingPinLocation = null;
+            document.getElementById('addPinBtn').focus();
+
+            updateStatus(`Pin added${label ? `: ${sanitizeHTML(label)}` : ''}`);
+        }
+        
+        // Toggle tracking
+        function toggleTracking() {
+            if (isTracking) {
+                stopTracking();
+            } else {
+                startTracking();
+            }
+        }
+        
+        function startTracking() {
+            isTracking = true;
+            isPaused = false;
+            const trackingBtn = document.getElementById('trackingBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            trackingBtn.textContent = '⏹️ Stop Tracking';
+            trackingBtn.setAttribute('aria-label', 'Stop location tracking');
+            trackingBtn.classList.add('tracking');
+            pauseBtn.style.display = 'block';
+            pauseBtn.textContent = '⏸️ Pause';
+
+            // Record initial position
+            recordPosition();
+
+            // Record position at configured interval
+            const intervalMs = config.trackingIntervalSeconds * 1000;
+            trackingInterval = setInterval(recordPosition, intervalMs);
+
+            updateStatus(`Tracking started - recording every ${config.trackingIntervalSeconds}s`);
+        }
+
+        function stopTracking() {
+            isTracking = false;
+            isPaused = false;
+            clearInterval(trackingInterval);
+            const trackingBtn = document.getElementById('trackingBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            trackingBtn.textContent = '▶️ Start Tracking';
+            trackingBtn.setAttribute('aria-label', 'Start location tracking');
+            trackingBtn.classList.remove('tracking');
+            pauseBtn.style.display = 'none';
+            lastRecordedPosition = null; // Reset for next tracking session
+
+            updateStatus('Tracking stopped');
+        }
+
+        function togglePause() {
+            if (isPaused) {
+                resumeTracking();
+            } else {
+                pauseTracking();
+            }
+        }
+
+        function pauseTracking() {
+            isPaused = true;
+            clearInterval(trackingInterval);
+            const pauseBtn = document.getElementById('pauseBtn');
+            pauseBtn.textContent = '▶️ Resume';
+            pauseBtn.setAttribute('aria-label', 'Resume tracking');
+            pauseBtn.classList.add('tracking');
+            updateStatus('Tracking paused');
+        }
+
+        function resumeTracking() {
+            isPaused = false;
+            const pauseBtn = document.getElementById('pauseBtn');
+            pauseBtn.textContent = '⏸️ Pause';
+            pauseBtn.setAttribute('aria-label', 'Pause tracking');
+            pauseBtn.classList.remove('tracking');
+
+            // Restart interval
+            const intervalMs = config.trackingIntervalSeconds * 1000;
+            trackingInterval = setInterval(recordPosition, intervalMs);
+            updateStatus('Tracking resumed');
+        }
+        
+        function recordPosition() {
+            if (!currentLocationMarker) return;
+
+            const latlng = currentLocationMarker.getLatLng();
+
+            // Check movement threshold
+            if (lastRecordedPosition) {
+                const distanceMoved = calculateDistance(
+                    lastRecordedPosition.lat, lastRecordedPosition.lng,
+                    latlng.lat, latlng.lng
+                );
+
+                if (distanceMoved < config.movementThresholdMeters) {
+                    console.log(`Skipping record - only moved ${distanceMoved.toFixed(1)}m (threshold: ${config.movementThresholdMeters}m)`);
+                    const distance = calculateTotalDistance();
+                    const duration = getTrackDuration();
+                    updateStatus(`Tracking: ${trackPoints.length} points | ${formatDistance(distance)} | ${formatDuration(duration)} | Stationary`);
+                    return;
+                }
+            }
+
+            const point = {
+                lat: latlng.lat,
+                lng: latlng.lng,
+                timestamp: new Date().toISOString()
+            };
+
+            trackPoints.push(point);
+            lastRecordedPosition = { lat: latlng.lat, lng: latlng.lng };
+            updateTrackPolyline();
+            saveData();
+
+            // Show stats
+            const distance = calculateTotalDistance();
+            const duration = getTrackDuration();
+            updateStatus(`Tracking: ${trackPoints.length} points | ${formatDistance(distance)} | ${formatDuration(duration)}`);
+        }
+        
+        function updateTrackPolyline() {
+            if (trackPolyline) {
+                map.removeLayer(trackPolyline);
+            }
+            
+            if (trackPoints.length > 1) {
+                const latlngs = trackPoints.map(p => [p.lat, p.lng]);
+                trackPolyline = L.polyline(latlngs, {
+                    color: '#f44336',
+                    weight: 3,
+                    opacity: 0.7
+                }).addTo(map);
+            }
+        }
+        
+        // Clear all data
+        function clearAll() {
+            if (!confirm('Clear all pins and tracking data? This cannot be undone.')) {
+                return;
+            }
+
+            // Stop tracking if active
+            if (isTracking) {
+                stopTracking();
+            }
+
+            // Clear pin markers using stored references
+            pinMarkers.forEach((marker) => {
+                map.removeLayer(marker);
+            });
+            pinMarkers.clear();
+
+            // Clear pins array
+            pins = [];
+
+            // Clear track
+            trackPoints = [];
+            if (trackPolyline) {
+                map.removeLayer(trackPolyline);
+                trackPolyline = null;
+            }
+
+            // Clear any remaining markers except current location
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer !== currentLocationMarker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            saveData();
+            updateStatus('All data cleared');
+        }
+        
+        // Data persistence
+        function saveData() {
+            try {
+                // Check quota before saving
+                const dataToSave = {
+                    pins: pins,
+                    track: trackPoints,
+                    version: 1
+                };
+                const dataSize = JSON.stringify(dataToSave).length;
+
+                // Estimate localStorage usage (rough estimate)
+                if (dataSize > 4 * 1024 * 1024) { // 4MB warning threshold
+                    console.warn('Data size approaching localStorage limits');
+                    // Try to save anyway, will catch quota error below
+                }
+
+                localStorage.setItem('locationTrackerPins', JSON.stringify(pins));
+                localStorage.setItem('locationTrackerTrack', JSON.stringify(trackPoints));
+                localStorage.setItem('locationTrackerVersion', '1');
+            } catch (e) {
+                if (e.name === 'QuotaExceededError') {
+                    updateStatus('⚠️ Storage full! Consider exporting and clearing old data.');
+                    console.error('LocalStorage quota exceeded:', e);
+
+                    // Attempt to prune old track points and retry
+                    if (trackPoints.length > 100) {
+                        if (confirm('Storage is full. Keep only the most recent 100 tracking points?')) {
+                            trackPoints = trackPoints.slice(-100);
+                            updateTrackPolyline();
+                            try {
+                                localStorage.setItem('locationTrackerTrack', JSON.stringify(trackPoints));
+                                updateStatus('Storage cleared. Keeping recent 100 points.');
+                            } catch (e2) {
+                                updateStatus('⚠️ Unable to save data. Please export and clear all.');
+                            }
+                        }
+                    }
+                } else {
+                    console.error('Error saving data:', e);
+                    updateStatus('⚠️ Error saving data. Check browser console.');
+                }
+            }
+        }
+
+        function loadData() {
+            try {
+                const savedPins = localStorage.getItem('locationTrackerPins');
+                const savedTrack = localStorage.getItem('locationTrackerTrack');
+                const version = localStorage.getItem('locationTrackerVersion') || '0';
+
+                if (savedPins) {
+                    try {
+                        const parsedPins = JSON.parse(savedPins);
+
+                        // Validate data structure
+                        if (Array.isArray(parsedPins)) {
+                            pins = parsedPins.filter(pin =>
+                                pin &&
+                                typeof pin.lat === 'number' &&
+                                typeof pin.lng === 'number' &&
+                                !isNaN(pin.lat) &&
+                                !isNaN(pin.lng)
+                            );
+
+                            pins.forEach((pin, index) => {
+                                try {
+                                    const marker = L.marker([pin.lat, pin.lng]).addTo(map);
+                                    const sanitizedLabel = sanitizeHTML(pin.label || '');
+                                    const formattedDate = pin.timestamp ?
+                                        new Date(pin.timestamp).toLocaleString() :
+                                        'Unknown date';
+
+                                    if (pin.label) {
+                                        marker.bindPopup(`<b>${sanitizedLabel}</b><br>${formattedDate}`);
+                                    } else {
+                                        marker.bindPopup(`Pin added at ${formattedDate}`);
+                                    }
+
+                                    // Store marker reference
+                                    pinMarkers.set(index, marker);
+                                } catch (e) {
+                                    console.error('Error loading pin:', pin, e);
+                                }
+                            });
+
+                            console.log(`Loaded ${pins.length} pins`);
+                        } else {
+                            throw new Error('Invalid pins data structure');
+                        }
+                    } catch (e) {
+                        console.error('Error parsing pins data:', e);
+                        updateStatus('⚠️ Corrupted pin data detected. Skipping pins.');
+                        pins = [];
+                    }
+                }
+
+                if (savedTrack) {
+                    try {
+                        const parsedTrack = JSON.parse(savedTrack);
+
+                        // Validate data structure
+                        if (Array.isArray(parsedTrack)) {
+                            trackPoints = parsedTrack.filter(point =>
+                                point &&
+                                typeof point.lat === 'number' &&
+                                typeof point.lng === 'number' &&
+                                !isNaN(point.lat) &&
+                                !isNaN(point.lng)
+                            );
+
+                            updateTrackPolyline();
+                            console.log(`Loaded ${trackPoints.length} track points`);
+                        } else {
+                            throw new Error('Invalid track data structure');
+                        }
+                    } catch (e) {
+                        console.error('Error parsing track data:', e);
+                        updateStatus('⚠️ Corrupted track data detected. Skipping track.');
+                        trackPoints = [];
+                    }
+                }
+
+                // Data migration for future versions
+                if (version === '0') {
+                    // Migrate old data format if needed
+                    console.log('Migrating data to version 1');
+                    saveData(); // Save with new version
+                }
+            } catch (e) {
+                console.error('Critical error loading data:', e);
+                updateStatus('⚠️ Error loading saved data. Starting fresh.');
+                pins = [];
+                trackPoints = [];
+            }
+        }
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Mobile menu functions
+        function toggleMenu() {
+            menuOpen = !menuOpen;
+            const controls = document.querySelector('.controls');
+            const menuToggle = document.getElementById('menuToggle');
+
+            if (menuOpen) {
+                controls.classList.add('open');
+                menuToggle.textContent = '✕';
+                menuToggle.setAttribute('aria-expanded', 'true');
+                menuToggle.setAttribute('aria-label', 'Close menu');
+            } else {
+                controls.classList.remove('open');
+                menuToggle.textContent = '☰';
+                menuToggle.setAttribute('aria-expanded', 'false');
+                menuToggle.setAttribute('aria-label', 'Open menu');
+            }
+        }
+
+        function closeMenu() {
+            if (menuOpen) {
+                toggleMenu();
+            }
+        }
+
+        // Export functions
+        function showExportModal() {
+            if (pins.length === 0 && trackPoints.length === 0) {
+                alert('No data to export. Add some pins or start tracking first.');
+                return;
+            }
+            document.getElementById('exportModal').classList.add('active');
+            // Focus first button in modal
+            setTimeout(() => {
+                const firstButton = document.querySelector('#exportModal .primary');
+                if (firstButton) firstButton.focus();
+            }, 100);
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.remove('active');
+            // Return focus to export button
+            document.getElementById('exportBtn').focus();
+        }
+
+        function exportGPX() {
+            const gpx = generateGPX();
+            downloadFile(gpx, 'location-tracker-export.gpx', 'application/gpx+xml');
+            closeExportModal();
+            updateStatus('Data exported as GPX');
+        }
+
+        function exportJSON() {
+            const data = {
+                pins: pins,
+                trackPoints: trackPoints,
+                stats: {
+                    totalDistance: calculateTotalDistance(),
+                    duration: getTrackDuration(),
+                    pointCount: trackPoints.length,
+                    pinCount: pins.length
+                },
+                exportDate: new Date().toISOString()
+            };
+            const json = JSON.stringify(data, null, 2);
+            downloadFile(json, 'location-tracker-export.json', 'application/json');
+            closeExportModal();
+            updateStatus('Data exported as JSON');
+        }
+
+        function generateGPX() {
+            let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            gpx += '<gpx version="1.1" creator="Location Tracker" xmlns="http://www.topografix.com/GPX/1/1">\n';
+            gpx += '  <metadata>\n';
+            gpx += `    <name>Location Tracker Export</name>\n`;
+            gpx += `    <time>${new Date().toISOString()}</time>\n`;
+            gpx += '  </metadata>\n';
+
+            // Add waypoints (pins)
+            pins.forEach((pin, index) => {
+                gpx += `  <wpt lat="${pin.lat}" lon="${pin.lng}">\n`;
+                if (pin.label) {
+                    gpx += `    <name>${sanitizeHTML(pin.label)}</name>\n`;
+                } else {
+                    gpx += `    <name>Pin ${index + 1}</name>\n`;
+                }
+                gpx += `    <time>${pin.timestamp}</time>\n`;
+                gpx += '  </wpt>\n';
+            });
+
+            // Add track
+            if (trackPoints.length > 0) {
+                gpx += '  <trk>\n';
+                gpx += '    <name>Location Track</name>\n';
+                gpx += '    <trkseg>\n';
+                trackPoints.forEach(point => {
+                    gpx += `      <trkpt lat="${point.lat}" lon="${point.lng}">\n`;
+                    gpx += `        <time>${point.timestamp}</time>\n`;
+                    gpx += '      </trkpt>\n';
+                });
+                gpx += '    </trkseg>\n';
+                gpx += '  </trk>\n';
+            }
+
+            gpx += '</gpx>';
+            return gpx;
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Settings functions
+        function showSettingsModal() {
+            document.getElementById('trackingInterval').value = config.trackingIntervalSeconds;
+            document.getElementById('movementThreshold').value = config.movementThresholdMeters;
+            document.getElementById('highAccuracy').checked = config.highAccuracy;
+            document.getElementById('settingsModal').classList.add('active');
+            // Focus first input
+            setTimeout(() => {
+                document.getElementById('trackingInterval').focus();
+            }, 100);
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('active');
+            // Return focus to settings button
+            document.getElementById('settingsBtn').focus();
+        }
+
+        function saveSettings() {
+            const newInterval = parseInt(document.getElementById('trackingInterval').value);
+            const newHighAccuracy = document.getElementById('highAccuracy').checked;
+            const newThreshold = parseInt(document.getElementById('movementThreshold').value);
+
+            if (newInterval < 5 || newInterval > 300) {
+                alert('Tracking interval must be between 5 and 300 seconds.');
+                return;
+            }
+
+            if (newThreshold < 0 || newThreshold > 100) {
+                alert('Movement threshold must be between 0 and 100 meters.');
+                return;
+            }
+
+            config.trackingIntervalSeconds = newInterval;
+            config.highAccuracy = newHighAccuracy;
+            config.movementThresholdMeters = newThreshold;
+
+            saveConfig();
+
+            // Restart geolocation if settings changed
+            if (geolocationWatchId !== null) {
+                navigator.geolocation.clearWatch(geolocationWatchId);
+                geolocationWatchId = null;
+                getCurrentLocation();
+            }
+
+            // Restart tracking with new interval if currently tracking
+            if (isTracking) {
+                stopTracking();
+                startTracking();
+            }
+
+            closeSettingsModal();
+            updateStatus(`Settings saved: ${config.trackingIntervalSeconds}s interval, ${config.highAccuracy ? 'high' : 'balanced'} accuracy`);
+        }
+
+        // Map style functions
+        function showMapStyleModal() {
+            document.getElementById('mapStyleModal').classList.add('active');
+            setTimeout(() => {
+                const firstButton = document.querySelector('#mapStyleModal .primary');
+                if (firstButton) firstButton.focus();
+            }, 100);
+        }
+
+        function closeMapStyleModal() {
+            document.getElementById('mapStyleModal').classList.remove('active');
+            document.getElementById('mapStyleBtn').focus();
+        }
+
+        function changeMapStyle(style) {
+            if (!tileLayers[style]) {
+                console.error('Unknown map style:', style);
+                return;
+            }
+
+            // Remove current layer
+            if (currentTileLayer) {
+                map.removeLayer(currentTileLayer);
+            }
+
+            // Add new layer
+            currentTileLayer = tileLayers[style];
+            currentTileLayer.addTo(map);
+
+            // Save preference
+            config.mapStyle = style;
+            saveConfig();
+
+            // Close modal if open
+            if (document.getElementById('mapStyleModal').classList.contains('active')) {
+                closeMapStyleModal();
+            }
+
+            const styleNames = {
+                'streets': 'Streets',
+                'satellite': 'Satellite',
+                'terrain': 'Terrain'
+            };
+            updateStatus(`Map style changed to ${styleNames[style]}`);
+        }
+
+        function saveConfig() {
+            try {
+                localStorage.setItem('locationTrackerConfig', JSON.stringify(config));
+            } catch (e) {
+                console.error('Error saving config:', e);
+                updateStatus('⚠️ Error saving settings.');
+            }
+        }
+
+        function loadConfig() {
+            try {
+                const savedConfig = localStorage.getItem('locationTrackerConfig');
+                if (savedConfig) {
+                    const parsedConfig = JSON.parse(savedConfig);
+
+                    // Validate config values
+                    if (parsedConfig.trackingIntervalSeconds &&
+                        parsedConfig.trackingIntervalSeconds >= 5 &&
+                        parsedConfig.trackingIntervalSeconds <= 300) {
+                        config.trackingIntervalSeconds = parsedConfig.trackingIntervalSeconds;
+                    }
+
+                    if (typeof parsedConfig.highAccuracy === 'boolean') {
+                        config.highAccuracy = parsedConfig.highAccuracy;
+                    }
+
+                    if (parsedConfig.movementThresholdMeters !== undefined &&
+                        parsedConfig.movementThresholdMeters >= 0 &&
+                        parsedConfig.movementThresholdMeters <= 100) {
+                        config.movementThresholdMeters = parsedConfig.movementThresholdMeters;
+                    }
+
+                    if (parsedConfig.mapStyle && ['streets', 'satellite', 'terrain'].includes(parsedConfig.mapStyle)) {
+                        config.mapStyle = parsedConfig.mapStyle;
+                    }
+
+                    console.log('Config loaded:', config);
+                }
+            } catch (e) {
+                console.error('Error loading config:', e);
+                // Use default config on error
+                config = {
+                    trackingIntervalSeconds: 30,
+                    highAccuracy: true,
+                    movementThresholdMeters: 10,
+                    mapStyle: 'streets'
+                };
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('menuToggle').addEventListener('click', toggleMenu);
+
+        document.getElementById('addPinBtn').addEventListener('click', () => {
+            addPin();
+            closeMenu();
+        });
+
+        document.getElementById('trackingBtn').addEventListener('click', () => {
+            toggleTracking();
+            closeMenu();
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            togglePause();
+            closeMenu();
+        });
+
+        document.getElementById('mapStyleBtn').addEventListener('click', () => {
+            showMapStyleModal();
+            closeMenu();
+        });
+
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            showSettingsModal();
+            closeMenu();
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            showExportModal();
+            closeMenu();
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            clearAll();
+            closeMenu();
+        });
+        
+        // Allow Enter key to save pin
+        document.getElementById('pinLabel').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                savePin();
+            }
+        });
+
+        // Keyboard accessibility - ESC to close modals and menu
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Close any open modal
+                if (document.getElementById('pinModal').classList.contains('active')) {
+                    cancelPin();
+                } else if (document.getElementById('exportModal').classList.contains('active')) {
+                    closeExportModal();
+                } else if (document.getElementById('settingsModal').classList.contains('active')) {
+                    closeSettingsModal();
+                } else if (document.getElementById('mapStyleModal').classList.contains('active')) {
+                    closeMapStyleModal();
+                } else if (menuOpen) {
+                    closeMenu();
+                }
+            }
+        });
+
+        // Close menu when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (menuOpen) {
+                const controls = document.querySelector('.controls');
+                const menuToggle = document.getElementById('menuToggle');
+
+                if (!controls.contains(e.target) && e.target !== menuToggle) {
+                    closeMenu();
+                }
+            }
+        });
+        
+        // Service Worker for offline support
+        if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+            // Create service worker as blob URL
+            const swCode = `
+                const CACHE_NAME = 'location-tracker-v2';
+                const TILE_CACHE_NAME = 'map-tiles-v1';
+                const urlsToCache = [
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+                ];
+
+                // Maximum number of tiles to cache (to prevent unlimited storage)
+                const MAX_TILE_CACHE = 500;
+
+                self.addEventListener('install', event => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME)
+                            .then(cache => cache.addAll(urlsToCache))
+                            .catch(err => console.error('Cache installation failed:', err))
+                    );
+                });
+
+                self.addEventListener('fetch', event => {
+                    const url = new URL(event.request.url);
+
+                    // Check if it's a tile request
+                    const isTileRequest =
+                        url.hostname.includes('tile.openstreetmap.org') ||
+                        url.hostname.includes('arcgisonline.com') ||
+                        url.hostname.includes('opentopomap.org');
+
+                    if (isTileRequest) {
+                        event.respondWith(
+                            caches.open(TILE_CACHE_NAME).then(cache => {
+                                return cache.match(event.request).then(response => {
+                                    if (response) {
+                                        return response;
+                                    }
+
+                                    return fetch(event.request).then(networkResponse => {
+                                        // Only cache successful tile responses
+                                        if (networkResponse.ok) {
+                                            // Clone before caching
+                                            cache.put(event.request, networkResponse.clone());
+
+                                            // Limit cache size
+                                            cache.keys().then(keys => {
+                                                if (keys.length > MAX_TILE_CACHE) {
+                                                    // Remove oldest entries
+                                                    const toDelete = keys.slice(0, keys.length - MAX_TILE_CACHE);
+                                                    toDelete.forEach(key => cache.delete(key));
+                                                }
+                                            });
+                                        }
+                                        return networkResponse;
+                                    }).catch(() => {
+                                        // Return cached tile or nothing if offline
+                                        return response;
+                                    });
+                                });
+                            })
+                        );
+                    } else {
+                        // Regular caching for non-tile requests
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then(response => response || fetch(event.request))
+                                .catch(err => {
+                                    console.error('Fetch failed:', err);
+                                    throw err;
+                                })
+                        );
+                    }
+                });
+
+                // Clean up old caches on activation
+                self.addEventListener('activate', event => {
+                    event.waitUntil(
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    if (cacheName !== CACHE_NAME && cacheName !== TILE_CACHE_NAME) {
+                                        console.log('Deleting old cache:', cacheName);
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                });
+            `;
+
+            // Create blob from service worker code
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+
+            navigator.serviceWorker.register(swUrl)
+                .then(() => {
+                    console.log('Service Worker registered successfully');
+                })
+                .catch((error) => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        } else if (window.location.protocol === 'file:') {
+            console.log('Service Worker not available when opening from file://. Use a web server for offline support.');
+        }
+        
+        // Cleanup function
+        function cleanup() {
+            // Stop tracking
+            if (isTracking) {
+                clearInterval(trackingInterval);
+            }
+
+            // Stop geolocation watch
+            if (geolocationWatchId !== null) {
+                navigator.geolocation.clearWatch(geolocationWatchId);
+                geolocationWatchId = null;
+            }
+        }
+
+            // Initialize on load
+            window.addEventListener('load', initMap);
+
+            // Cleanup on unload
+            window.addEventListener('beforeunload', cleanup);
+
+            // Expose functions needed by inline event handlers
+            window.cancelPin = cancelPin;
+            window.savePin = savePin;
+            window.exportGPX = exportGPX;
+            window.exportJSON = exportJSON;
+            window.closeExportModal = closeExportModal;
+            window.closeSettingsModal = closeSettingsModal;
+            window.saveSettings = saveSettings;
+            window.closeMapStyleModal = closeMapStyleModal;
+            window.changeMapStyle = changeMapStyle;
+        })();
+    </script>
+</body>
+</html>
