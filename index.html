@@ -225,8 +225,22 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             font-size: 16px;
+        }
+
+        .modal-content input[type="text"],
+        .modal-content input[type="number"] {
             -webkit-appearance: none;
             appearance: none;
+        }
+
+        .modal-content input[type="checkbox"] {
+            width: auto;
+            padding: 0;
+            margin: 0;
+            margin-right: 5px;
+            cursor: pointer;
+            -webkit-appearance: checkbox;
+            appearance: checkbox;
         }
 
         /* Prevent zoom on iOS when focusing inputs */
@@ -321,8 +335,7 @@
                 <span id="thresholdDesc" class="sr-only">Minimum distance to move before recording a new point</span>
             </label>
             <label for="highAccuracy" style="display: block; margin-bottom: 15px;">
-                <input type="checkbox" id="highAccuracy" checked style="width: auto; margin-right: 5px;"
-                       aria-describedby="accuracyDesc" />
+                <input type="checkbox" id="highAccuracy" checked aria-describedby="accuracyDesc" />
                 <span>High accuracy GPS (uses more battery)</span>
                 <span id="accuracyDesc" class="sr-only">Enable high accuracy GPS for better precision at the cost of battery life</span>
             </label>
