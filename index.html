@@ -1257,13 +1257,35 @@
         
         // Service Worker for offline support
         if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+            // First, unregister any old service workers
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    if (registration.active && registration.active.scriptURL.includes('blob:')) {
+                        console.log('Unregistering old blob-based service worker');
+                        registration.unregister();
+                    }
+                });
+            });
+
+            // Register the new service worker
             navigator.serviceWorker.register('./sw.js')
                 .then(registration => {
                     console.log('Service Worker registered successfully:', registration.scope);
+
+                    // Force update if there's a waiting worker
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
                 })
                 .catch(error => {
                     console.error('Service Worker registration failed:', error);
                 });
+
+            // Listen for service worker updates
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                console.log('Service Worker updated, reloading page...');
+                window.location.reload();
+            });
         } else if (window.location.protocol === 'file:') {
             console.log('Service Worker not available when opening from file://. Use a web server (npx http-server -p 8000) for offline support.');
         }

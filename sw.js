@@ -10,6 +10,13 @@ const urlsToCache = [
 // Maximum number of tiles to cache (to prevent unlimited storage)
 const MAX_TILE_CACHE = 500;
 
+// Listen for skip waiting message
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 self.addEventListener('install', event => {
     console.log('Service Worker installing...');
     event.waitUntil(
@@ -20,6 +27,8 @@ self.addEventListener('install', event => {
             })
             .catch(err => console.error('Cache installation failed:', err))
     );
+    // Force the waiting service worker to become the active service worker
+    self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
